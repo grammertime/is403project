@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Word Count</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  body {
+    background: linear-gradient(135deg, #e0e7ff 0%, #cffafe 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 2rem;
+  }
+
+  .card {
+    max-width: 600px;
+    width: 100%;
+    padding: 2.5rem;
+    border-radius: 1.5rem;
+    background-color: #fff;
+    box-shadow: 0 1rem 3rem rgba(0,0,0,0.15);
+    animation: slideIn 0.5s ease-out;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h2 {
+    color: #3b82f6;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  textarea, input {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid #d1d5db;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 0.75rem;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(59,130,246,0.4);
+  }
+
+  .word-count {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 1rem;
+    text-align: right;
+  }
+
+  label {
+    font-weight: 600;
+    color: #374151;
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Log Today's Writing</h2>
+
+  <% if (typeof error_message !== 'undefined' && error_message) { %>
+    <div style="color:red; font-weight:600; margin-bottom:1rem;">
+      <%= error_message %>
+    </div>
+  <% } %>
+
+  <form action="/log" method="POST">
+    <label for="text">Paste your words:</label>
+    <textarea id="text" name="text" rows="6" placeholder="Paste your writing here..."></textarea>
+
+    <p class="word-count">Word Count: <span id="count">0</span></p>
+
+    <label for="manual">Or enter word count manually:</label>
+    <input type="number" id="manual" name="manual_count" placeholder="e.g. 500">
+
+    <button type="submit" class="btn-primary">Submit</button>
+  </form>
+</div>
+
+<script>
+  const textArea = document.getElementById('text');
+  const countDisplay = document.getElementById('count');
+
+  textArea.addEventListener('input', () => {
+    const text = textArea.value.trim();
+    const words = text ? text.split(/\s+/).length : 0;
+    countDisplay.textContent = words;
+  });
+</script>
+</body>
+</html>
