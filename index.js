@@ -125,52 +125,6 @@ app.get('/logout', (req, res) => {
 });
 
 
-
-
-// Stuff for input.ejs and stats.ejs
-const pool = require('./db'); // import the PostgreSQL pool at the top of the file
-
-// Input page (GET)
-app.get('/input', (req, res) => {
-    if (!req.session.isLoggedIn) return res.redirect('/');
-    res.render('input', { error_message: null });
-});
-
-// Handle logging word count (POST)
-app.post('/log', async (req, res) => {
-    if (!req.session.isLoggedIn) return res.redirect('/');
-    const { text, manual_count } = req.body;
-    const wordCount = manual_count || (text ? text.trim().split(/\s+/).length : 0);
-
-    if (wordCount <= 0) {
-        return res.render('input', { error_message: 'Please enter some words or a valid count' });
-    }
-
-    try {
-        // Replace '1' below with the user's project_id or the active project for this user
-        const projectResult = await pool.query(
-            'SELECT project_id FROM Project WHERE user_id=$1 ORDER BY start_date DESC LIMIT 1',
-            [req.session.user_id]
-        );
-
-        if (projectResult.rows.length === 0) {
-            return res.render('input', { error_message: 'No active project found for this user' });
-        }
-
-        const projectId = projectResult.rows[0].project_id;
-
-        await pool.query(
-            'INSERT INTO ProgressLog (project_id, log_date, word_count, total_words) VALUES ($1, CURRENT_DATE, $2, $2)',
-            [projectId, wordCount]
-        );
-
-        res.redirect('/stats');
-    } catch (err) {
-        console.error(err);
-        res.render('input', { error_message: 'Error logging words. Try again.' });
-    }
-});
-
 // Statistics page (GET)
 app.get('/stats', async (req, res) => {
     if (!req.session.isLoggedIn) return res.redirect('/');
@@ -213,10 +167,6 @@ app.get('/stats', async (req, res) => {
         res.send('Error loading statistics');
     }
 });
-
-
-
-
 
 
 console.log("Port value:", port);
