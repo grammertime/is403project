@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Writing Project</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            padding: 2rem 0;
+        }
+        .form-container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .form-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 0.75rem 2rem;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        h2 {
+            color: #667eea;
+            font-weight: 700;
+        }
+        .progress-preview {
+            background: #e0e7ff;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>📝 Edit Project</h2>
+                <a href="/dashboard" class="btn btn-outline-secondary">Back to Dashboard</a>
+            </div>
+            
+            <!-- Progress Preview -->
+            <div class="progress-preview">
+                <h5>Current Progress</h5>
+                <div class="d-flex justify-content-between mb-2">
+                    <span><%= project.current_words.toLocaleString() %> / <%= project.target_words.toLocaleString() %> words</span>
+                    <span><strong><%= Math.round((project.current_words / project.target_words) * 100) %>%</strong></span>
+                </div>
+                <div class="progress" style="height: 20px;">
+                    <div class="progress-bar bg-success" 
+                         style="width: <%= (project.current_words / project.target_words) * 100 %>%">
+                    </div>
+                </div>
+            </div>
+            
+            <form action="/edit/<%= project.id %>" method="POST">
+                <div class="mb-3">
+                    <label for="title" class="form-label">Project Title *</label>
+                    <input type="text" class="form-control" id="title" name="title" 
+                           value="<%= project.title %>" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="genre" class="form-label">Genre *</label>
+                    <select class="form-select" id="genre" name="genre" required>
+                        <option value="Fantasy" <%= project.genre === 'Fantasy' ? 'selected' : '' %>>Fantasy</option>
+                        <option value="Science Fiction" <%= project.genre === 'Science Fiction' ? 'selected' : '' %>>Science Fiction</option>
+                        <option value="Mystery" <%= project.genre === 'Mystery' ? 'selected' : '' %>>Mystery</option>
+                        <option value="Romance" <%= project.genre === 'Romance' ? 'selected' : '' %>>Romance</option>
+                        <option value="Thriller" <%= project.genre === 'Thriller' ? 'selected' : '' %>>Thriller</option>
+                        <option value="Horror" <%= project.genre === 'Horror' ? 'selected' : '' %>>Horror</option>
+                        <option value="Historical Fiction" <%= project.genre === 'Historical Fiction' ? 'selected' : '' %>>Historical Fiction</option>
+                        <option value="Literary Fiction" <%= project.genre === 'Literary Fiction' ? 'selected' : '' %>>Literary Fiction</option>
+                        <option value="Young Adult" <%= project.genre === 'Young Adult' ? 'selected' : '' %>>Young Adult</option>
+                        <option value="Non-Fiction" <%= project.genre === 'Non-Fiction' ? 'selected' : '' %>>Non-Fiction</option>
+                        <option value="Fiction" <%= project.genre === 'Fiction' ? 'selected' : '' %>>Fiction</option>
+                        <option value="Other" <%= project.genre === 'Other' ? 'selected' : '' %>>Other</option>
+                    </select>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="targetWords" class="form-label">Target Word Count *</label>
+                        <input type="number" class="form-control" id="targetWords" name="targetWords" 
+                               value="<%= project.target_words %>" min="1" required>
+                        <small class="text-muted">Your final word count goal</small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="currentWords" class="form-label">Current Word Count *</label>
+                        <input type="number" class="form-control" id="currentWords" name="currentWords" 
+                               value="<%= project.current_words %>" min="0" required>
+                        <small class="text-muted">Words written so far</small>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="dailyGoal" class="form-label">Daily Word Goal *</label>
+                        <input type="number" class="form-control" id="dailyGoal" name="dailyGoal" 
+                               value="<%= project.daily_goal %>" min="1" required>
+                        <small class="text-muted">Words per day</small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="startDate" class="form-label">Start Date *</label>
+                        <input type="date" class="form-control" id="startDate" name="startDate" 
+                               value="<%= project.start_date %>" required>
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Save Changes</button>
+                    <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
