@@ -29,6 +29,17 @@ app.use ( // app.use is the express object that is called everytime we run our a
     )
 ); // now have a session object on the server that allows us to store data on the server
 
+const knex = require("knex")({
+    client: "pg",
+    connection: {
+        host : process.env.DB_HOST || "localhost",
+        user : process.env.DB_USER || "postgres",
+        password : process.env.DB_PASSWORD || "admin",
+        database : process.env.DB_NAME || "writinghelper",
+        port : process.env.DB_PORT || 5432  // PostgreSQL 16 typically uses port 5434
+    }
+});
+
 app.use(express.urlencoded({extended: true})); // allows us to work with the FORM using the NAME 
 
 // global authentication middlware (meaning running all the time) - runs on EVERY request
@@ -61,31 +72,38 @@ app.use((req, res, next) => {
 
 
 app.get('/', (req, res) =>  { // routes for the webpage http://localhost:3000/ <-- is the '/' in the line of code
-    res.render("login", {error_message: null}) // response
+    if (req.session.isLoggedIn) {        
+        res.render("index");
+    } 
+    else {
+        res.render("login", { error_message: "" });
+    }
 }); // when someone visits the root route
 
 // handle login form submission
 app.post('/login', (req, res) => {
-    const { username, password } = req.body
+    let sName = req.body.username;
+    let sPassword = req.body.password;
 
-    // simple fake user database for now
-    const users = [
-        {username: 'admin', password: '1234'},
-        {username: 'student', password: 'test'}
-    ];
-
-    // find user in our fake database
-    const found_user = users.find(user => user.username === username && user.password === password);
-
-    if (found_user) {
-        // store login status in session
-        req.session.isLoggedIn = true;
-        req.session.username = username;
-        res.redirect('/home');
-    } else {
-        // if invalid credentials reload login page with error
-        res.render('login', {error_message: 'Invalid username or password'});
-    }
+    knex.select("username", "password")
+        .from('user')
+        .where("username", sName)
+        .andWhere("password", sPassword)
+        .then(users => {
+            // Check if a user was found with matching username AND password
+            if (users.length > 0) {
+                req.session.isLoggedIn = true;
+                req.session.username = sName;
+                res.redirect("index");
+            } else {
+                // No matching user found
+                res.render("login", { error_message: "Invalid login" });
+            }
+        })
+        .catch(err => {
+            console.error("Login error:", err);
+            res.render("login", { error_message: "Invalid login" });
+        });
 });
 
 // home page route
