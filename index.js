@@ -124,6 +124,101 @@ app.get('/logout', (req, res) => {
     });
 });
 
+
+
+
+// Stuff for input.ejs and stats.ejs
+const pool = require('./db'); // import the PostgreSQL pool at the top of the file
+
+// Input page (GET)
+app.get('/input', (req, res) => {
+    if (!req.session.isLoggedIn) return res.redirect('/');
+    res.render('input', { error_message: null });
+});
+
+// Handle logging word count (POST)
+app.post('/log', async (req, res) => {
+    if (!req.session.isLoggedIn) return res.redirect('/');
+    const { text, manual_count } = req.body;
+    const wordCount = manual_count || (text ? text.trim().split(/\s+/).length : 0);
+
+    if (wordCount <= 0) {
+        return res.render('input', { error_message: 'Please enter some words or a valid count' });
+    }
+
+    try {
+        // Replace '1' below with the user's project_id or the active project for this user
+        const projectResult = await pool.query(
+            'SELECT project_id FROM Project WHERE user_id=$1 ORDER BY start_date DESC LIMIT 1',
+            [req.session.user_id]
+        );
+
+        if (projectResult.rows.length === 0) {
+            return res.render('input', { error_message: 'No active project found for this user' });
+        }
+
+        const projectId = projectResult.rows[0].project_id;
+
+        await pool.query(
+            'INSERT INTO ProgressLog (project_id, log_date, word_count, total_words) VALUES ($1, CURRENT_DATE, $2, $2)',
+            [projectId, wordCount]
+        );
+
+        res.redirect('/stats');
+    } catch (err) {
+        console.error(err);
+        res.render('input', { error_message: 'Error logging words. Try again.' });
+    }
+});
+
+// Statistics page (GET)
+app.get('/stats', async (req, res) => {
+    if (!req.session.isLoggedIn) return res.redirect('/');
+
+    try {
+        const userId = req.session.user_id;
+
+        // Get all projects for this user
+        const projectResult = await pool.query(
+            'SELECT project_id, title FROM Project WHERE user_id=$1',
+            [userId]
+        );
+        const projects = projectResult.rows;
+
+        const projectNames = [];
+        const totalWords = [];
+        const goalWords = [];
+
+        for (let project of projects) {
+            projectNames.push(project.title);
+
+            // Sum total words from ProgressLog
+            const progressResult = await pool.query(
+                'SELECT SUM(total_words) AS total FROM ProgressLog WHERE project_id=$1',
+                [project.project_id]
+            );
+            totalWords.push(Number(progressResult.rows[0].total) || 0);
+
+            // Sum target value for active goals
+            const goalResult = await pool.query(
+                'SELECT SUM(target_value) AS goal FROM Goal WHERE project_id=$1 AND is_active=TRUE',
+                [project.project_id]
+            );
+            goalWords.push(Number(goalResult.rows[0].goal) || 0);
+        }
+
+        res.render('stats', { projects: projectNames, totalWords, goalWords });
+    } catch (err) {
+        console.error(err);
+        res.send('Error loading statistics');
+    }
+});
+
+
+
+
+
+
 console.log("Port value:", port);
 app.listen(port, () => { // starts the server listening process
     console.log(`server is running on port ${port}`); // so we know that it's running

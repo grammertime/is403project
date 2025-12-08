@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Writing Statistics</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body {
+    background: linear-gradient(135deg, #e0e7ff 0%, #cffafe 100%);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 2rem;
+  }
+
+  .card {
+    max-width: 900px;
+    width: 100%;
+    padding: 2rem;
+    border-radius: 1.5rem;
+    background-color: #fff;
+    box-shadow: 0 1rem 3rem rgba(0,0,0,0.15);
+    margin-bottom: 2rem;
+    animation: slideIn 0.5s ease-out;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h2 {
+    color: #3b82f6;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    text-align: center;
+  }
+
+  canvas {
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Project Word Count Comparison</h2>
+  <canvas id="wordChart"></canvas>
+</div>
+
+<div class="card">
+  <h2>Goals vs Actual</h2>
+  <canvas id="goalChart"></canvas>
+</div>
+
+<script>
+  const projects = <%- JSON.stringify(projects) %>;
+  const totalWords = <%- JSON.stringify(totalWords) %>;
+  const goalWords = <%- JSON.stringify(goalWords) %>;
+
+  const ctx = document.getElementById('wordChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: projects,
+      datasets: [{
+        label: 'Total Words',
+        data: totalWords,
+        backgroundColor: 'rgba(59,130,246,0.7)'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: 'Words per Project' }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+
+  const goalCtx = document.getElementById('goalChart').getContext('2d');
+  new Chart(goalCtx, {
+    type: 'line',
+    data: {
+      labels: projects,
+      datasets: [
+        {
+          label: 'Actual Words',
+          data: totalWords,
+          borderColor: '#3b82f6',
+          backgroundColor: '#3b82f6',
+          fill: false,
+          tension: 0.2
+        },
+        {
+          label: 'Goal Words',
+          data: goalWords,
+          borderColor: '#ef4444',
+          backgroundColor: '#ef4444',
+          borderDash: [5,5],
+          fill: false,
+          tension: 0.2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: { display: true, text: 'Goal vs Actual Words' }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+</script>
+</body>
+</html>
