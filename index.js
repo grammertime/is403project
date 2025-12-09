@@ -313,12 +313,12 @@ app.post('/edit/:id', async (req, res) => {
       [title, genre, description || null, startDate, projectId, req.session.userId]
     );
 
-    // Update Goal with daily_target
+    // ✅ This part should only be here
     await db.query(
       `UPDATE Goal
-       SET target_value = $1, daily_target = $2
-       WHERE project_id = $3 AND goal_type = 'total_words' AND is_active = true`,
-      [parseInt(targetWords), parseInt(dailyGoal) || 1000, projectId]
+       SET target_value = $1
+       WHERE project_id = $2 AND goal_type = 'total_words' AND is_active = true`,
+      [parseInt(targetWords), projectId]
     );
 
     // Update progress
