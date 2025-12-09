@@ -19,7 +19,7 @@ const pool = new Pool({
   user: process.env.RDS_USERNAME || process.env.DB_USER || 'postgres',
   password: process.env.RDS_PASSWORD || process.env.DB_PASSWORD || 'admin',
   database: process.env.RDS_DB_NAME || process.env.DB_NAME || 'writinghelper',
-  port: process.env.RDS_PORT || process.env.DB_PORT || 5433,
+  port: process.env.RDS_PORT || process.env.DB_PORT || 5432,
   ssl: process.env.RDS_HOSTNAME ? { rejectUnauthorized: false } : false
 });
 
