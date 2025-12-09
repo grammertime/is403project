@@ -19,7 +19,7 @@ const pool = new Pool({
   user: process.env.RDS_USERNAME || process.env.DB_USER || 'postgres',
   password: process.env.RDS_PASSWORD || process.env.DB_PASSWORD || 'admin',
   database: process.env.RDS_DB_NAME || process.env.DB_NAME || 'writinghelper',
-  port: process.env.RDS_PORT || process.env.DB_PORT || 5432,
+  port: process.env.RDS_PORT || process.env.DB_PORT || 5433,
   ssl: process.env.RDS_HOSTNAME ? { rejectUnauthorized: false } : false
 });
 
@@ -85,7 +85,7 @@ app.post('/login', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.user_id, u.username, u.first_name, u.last_name, u.permissions, s.password_text
-       FROM users u
+       FROM "users" u
        INNER JOIN Security s ON u.user_id = s.user_id
        WHERE u.username = $1`,
       [username]
@@ -113,7 +113,7 @@ app.post('/login', async (req, res) => {
     req.session.firstName = user.first_name;
     req.session.permissions = user.permissions; // Store permissions in session
 
-    console.log(`✅ Login successful for ${username} (${user.permissions === 'M' ? 'Manager' : 'User'})`);
+    console.log(`✅ Login successful for ${username} (${user.permissions === 'M' ? 'Manager' : 'users'})`);
     res.redirect('/dashboard');
   } catch (err) {
     console.error('❌ Login error:', err);
@@ -123,12 +123,20 @@ app.post('/login', async (req, res) => {
 
 // Dashboard route
 app.get('/dashboard', async (req, res) => {
+    
   try {
+    console.log('=====================');
+    console.log('🧠 Dashboard route hit');
+    console.log('Logged in user:', req.session.username);
+    console.log('Session userId:', req.session.userId);
+    console.log('=====================');
+
     const result = await db.query(
       `SELECT p.project_id AS id, p.title, p.genre, p.description, p.start_date,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
-              COALESCE(g.daily_target, 1000) AS daily_goal
+              1000 AS daily_goal
+
        FROM Project p
        LEFT JOIN LATERAL (
          SELECT total_words
@@ -168,7 +176,8 @@ app.get('/search', async (req, res) => {
       `SELECT p.project_id AS id, p.title, p.genre, p.description, p.start_date,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
-              COALESCE(g.daily_target, 1000) AS daily_goal
+              1000 AS daily_goal
+
        FROM Project p
        LEFT JOIN LATERAL (
          SELECT total_words
@@ -208,6 +217,7 @@ app.get('/add', (req, res) => {
   res.render('add-project', { username: req.session.username });
 });
 
+
 // Add new project (submit)
 app.post('/add', async (req, res) => {
   const { title, genre, description, targetWords, currentWords, dailyGoal, startDate } = req.body;
@@ -218,6 +228,9 @@ app.post('/add', async (req, res) => {
        RETURNING project_id`,
       [req.session.userId, title, genre, description || null, startDate]
     );
+    console.log("Session userId:", req.session.userId);
+    console.log('Projects returned:', result.rows);
+    console.log("Session userId:", req.session.userId);
 
     const projectId = project.rows[0].project_id;
 
@@ -252,7 +265,7 @@ app.get('/edit/:id', async (req, res) => {
       `SELECT p.project_id AS id, p.title, p.genre, p.description, p.start_date,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
-              COALESCE(g.daily_target, 1000) AS daily_goal,
+              1000 AS daily_goal,
               g.goal_id
        FROM Project p
        LEFT JOIN LATERAL (
@@ -367,7 +380,8 @@ app.get('/log-words/:id', async (req, res) => {
       `SELECT p.project_id AS id, p.title, p.genre,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
-              COALESCE(g.daily_target, 1000) AS daily_goal
+              1000 AS daily_goal
+
        FROM Project p
        LEFT JOIN LATERAL (
          SELECT total_words
@@ -419,7 +433,8 @@ app.post('/log-words/:id', async (req, res) => {
         `SELECT p.project_id AS id, p.title, p.genre,
                 COALESCE(pl.total_words, 0) AS current_words,
                 COALESCE(g.target_value, 50000) AS target_words,
-                COALESCE(g.daily_target, 1000) AS daily_goal
+                1000 AS daily_goal
+
          FROM Project p
          LEFT JOIN LATERAL (
            SELECT total_words FROM ProgressLog
@@ -517,7 +532,7 @@ app.get('/manage-users', requireManager, async (req, res) => {
     const result = await db.query(
       `SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, 
               u.permissions, u.created_at, s.last_login
-       FROM users u
+       FROM "users" u
        LEFT JOIN Security s ON u.user_id = s.user_id
        ORDER BY u.created_at DESC`
     );
@@ -541,7 +556,7 @@ app.get('/edit-user/:id', requireManager, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.permissions
-       FROM users u
+       FROM "users" u
        WHERE u.user_id = $1`,
       [userId]
     );
@@ -567,7 +582,7 @@ app.post('/edit-user/:id', requireManager, async (req, res) => {
 
   try {
     await db.query(
-      `UPDATE users
+      `UPDATE "users"
        SET username = $1, email = $2, first_name = $3, last_name = $4, permissions = $5
        WHERE user_id = $6`,
       [username, email, first_name, last_name, permissions, userId]
@@ -590,7 +605,7 @@ app.post('/delete-user/:id', requireManager, async (req, res) => {
   }
 
   try {
-    await db.query('DELETE FROM users WHERE user_id = $1', [userId]);
+    await db.query('DELETE FROM "users" WHERE user_id = $1', [userId]);
     res.redirect('/manage-users');
   } catch (err) {
     console.error('Delete user error:', err);
