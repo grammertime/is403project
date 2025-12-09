@@ -85,7 +85,7 @@ app.post('/login', async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.user_id, u.username, u.first_name, u.last_name, u.permissions, s.password_text
-       FROM "User" u
+       FROM users u
        INNER JOIN Security s ON u.user_id = s.user_id
        WHERE u.username = $1`,
       [username]
@@ -517,7 +517,7 @@ app.get('/manage-users', requireManager, async (req, res) => {
     const result = await db.query(
       `SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, 
               u.permissions, u.created_at, s.last_login
-       FROM "User" u
+       FROM users u
        LEFT JOIN Security s ON u.user_id = s.user_id
        ORDER BY u.created_at DESC`
     );
@@ -541,7 +541,7 @@ app.get('/edit-user/:id', requireManager, async (req, res) => {
   try {
     const result = await db.query(
       `SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.permissions
-       FROM "User" u
+       FROM users u
        WHERE u.user_id = $1`,
       [userId]
     );
@@ -567,7 +567,7 @@ app.post('/edit-user/:id', requireManager, async (req, res) => {
 
   try {
     await db.query(
-      `UPDATE "User"
+      `UPDATE users
        SET username = $1, email = $2, first_name = $3, last_name = $4, permissions = $5
        WHERE user_id = $6`,
       [username, email, first_name, last_name, permissions, userId]
@@ -590,7 +590,7 @@ app.post('/delete-user/:id', requireManager, async (req, res) => {
   }
 
   try {
-    await db.query('DELETE FROM "User" WHERE user_id = $1', [userId]);
+    await db.query('DELETE FROM users WHERE user_id = $1', [userId]);
     res.redirect('/manage-users');
   } catch (err) {
     console.error('Delete user error:', err);
