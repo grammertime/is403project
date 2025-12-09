@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Inter', sans-serif;
+            padding: 2rem 0;
+        }
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        .header-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .user-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        .permission-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .badge-manager {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .badge-user {
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+        h2 {
+            color: #667eea;
+            font-weight: 700;
+        }
+        .info-badge {
+            background: #e0e7ff;
+            color: #4f46e5;
+            padding: 0.3rem 0.7rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="header-card">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div>
+                    <h2 class="mb-2">👥 User Management</h2>
+                    <p class="text-muted mb-0">Manage all users in the system</p>
+                </div>
+                <div class="d-flex gap-2 mt-3 mt-md-0">
+                    <a href="/dashboard" class="btn btn-outline-secondary">Back to Dashboard</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users List -->
+        <% if (users.length === 0) { %>
+            <div class="header-card text-center">
+                <h3 class="text-muted">No users found</h3>
+            </div>
+        <% } else { %>
+            <% users.forEach(user => { %>
+                <div class="user-card">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <h4 class="mb-0"><%= user.first_name %> <%= user.last_name %></h4>
+                                <span class="permission-badge <%= user.permissions === 'M' ? 'badge-manager' : 'badge-user' %>">
+                                    <%= user.permissions === 'M' ? '👑 Manager' : '👤 User' %>
+                                </span>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <span class="info-badge">📧 <%= user.email %></span>
+                                <span class="info-badge">🔑 <%= user.username %></span>
+                            </div>
+                            
+                            <div class="d-flex gap-3 flex-wrap text-muted" style="font-size: 0.9rem;">
+                                <span>📅 Joined: <%= new Date(user.created_at).toLocaleDateString() %></span>
+                                <% if (user.last_login) { %>
+                                    <span>🕒 Last Login: <%= new Date(user.last_login).toLocaleDateString() %></span>
+                                <% } else { %>
+                                    <span>🕒 Never logged in</span>
+                                <% } %>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                            <div class="d-flex flex-md-column gap-2 justify-content-end">
+                                <a href="/edit-user/<%= user.user_id %>" class="btn btn-outline-primary">Edit User</a>
+                                <form action="/delete-user/<%= user.user_id %>" method="POST" 
+                                      onsubmit="return confirm('Are you sure you want to delete <%= user.username %>? This will delete all their projects and data.');">
+                                    <button type="submit" class="btn btn-outline-danger w-100">Delete User</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        <% } %>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

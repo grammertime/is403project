@@ -1,8 +1,6 @@
 /**
- * Word Count Tracker
- * Simple full-stack app for tracking writing progress.
- * Includes login, sessions, CRUD (create/read/update/delete) for projects,
- * and progress tracking via PostgreSQL.
+ * Word Count Tracker - Enhanced Version with Manager Features
+ * Includes user management for managers
  */
 
 require('dotenv').config();
@@ -23,7 +21,6 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'wordcount_db'
 });
 
-// Instead of importing db.js, define db here:
 const db = {
   query: (text, params) => pool.query(text, params)
 };
@@ -37,7 +34,6 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      // secure: true, // uncomment if using HTTPS (AWS)
       maxAge: 1000 * 60 * 60 * 8 // 8 hours
     }
   })
@@ -49,8 +45,6 @@ app.use(express.json());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
-console.log('🧭 Views directory:', app.get('views'));
-
 
 // Debug logging
 app.use((req, _res, next) => {
@@ -67,6 +61,14 @@ app.use((req, res, next) => {
   res.render('login', { error_message: 'Please log in to access this page' });
 });
 
+// Manager-only middleware
+function requireManager(req, res, next) {
+  if (req.session.permissions === 'M') {
+    return next();
+  }
+  res.status(403).send('Access denied. Manager permissions required.');
+}
+
 // ---------------- ROUTES ----------------
 
 // Root route → Login page
@@ -74,13 +76,13 @@ app.get('/', (req, res) => {
   res.render('login', { error_message: null });
 });
 
-// Handle login (plain-text version for testing)
+// Handle login
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   try {
     const result = await db.query(
-      `SELECT u.user_id, u.username, u.first_name, u.last_name, s.password_text
+      `SELECT u.user_id, u.username, u.first_name, u.last_name, u.permissions, s.password_text
        FROM "User" u
        INNER JOIN Security s ON u.user_id = s.user_id
        WHERE u.username = $1`,
@@ -107,16 +109,15 @@ app.post('/login', async (req, res) => {
     req.session.username = user.username;
     req.session.userId = user.user_id;
     req.session.firstName = user.first_name;
+    req.session.permissions = user.permissions; // Store permissions in session
 
-    console.log(`✅ Login successful for ${username}`);
+    console.log(`✅ Login successful for ${username} (${user.permissions === 'M' ? 'Manager' : 'User'})`);
     res.redirect('/dashboard');
   } catch (err) {
     console.error('❌ Login error:', err);
     res.render('login', { error_message: 'An error occurred. Please try again.' });
   }
 });
-
-
 
 // Dashboard route
 app.get('/dashboard', async (req, res) => {
@@ -125,7 +126,7 @@ app.get('/dashboard', async (req, res) => {
       `SELECT p.project_id AS id, p.title, p.genre, p.description, p.start_date,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
-              COALESCE(g.target_value / 50, 1000) AS daily_goal
+              COALESCE(g.daily_target, 1000) AS daily_goal
        FROM Project p
        LEFT JOIN LATERAL (
          SELECT total_words
@@ -144,11 +145,16 @@ app.get('/dashboard', async (req, res) => {
 
     res.render('dashboard', {
       username: req.session.username,
-      projects: result.rows
+      projects: result.rows,
+      isManager: req.session.permissions === 'M' // Pass manager status to view
     });
   } catch (err) {
     console.error('Dashboard error:', err);
-    res.render('dashboard', { username: req.session.username, projects: [] });
+    res.render('dashboard', { 
+      username: req.session.username, 
+      projects: [],
+      isManager: req.session.permissions === 'M'
+    });
   }
 });
 
@@ -160,7 +166,7 @@ app.get('/search', async (req, res) => {
       `SELECT p.project_id AS id, p.title, p.genre, p.description, p.start_date,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
-              COALESCE(g.target_value / 50, 1000) AS daily_goal
+              COALESCE(g.daily_target, 1000) AS daily_goal
        FROM Project p
        LEFT JOIN LATERAL (
          SELECT total_words
@@ -181,11 +187,17 @@ app.get('/search', async (req, res) => {
     res.render('dashboard', {
       username: req.session.username,
       projects: result.rows,
-      searchTerm
+      searchTerm,
+      isManager: req.session.permissions === 'M'
     });
   } catch (err) {
     console.error('Search error:', err);
-    res.render('dashboard', { username: req.session.username, projects: [], searchTerm });
+    res.render('dashboard', { 
+      username: req.session.username, 
+      projects: [], 
+      searchTerm,
+      isManager: req.session.permissions === 'M'
+    });
   }
 });
 
@@ -196,22 +208,22 @@ app.get('/add', (req, res) => {
 
 // Add new project (submit)
 app.post('/add', async (req, res) => {
-  const { title, genre, targetWords, currentWords, startDate } = req.body;
+  const { title, genre, description, targetWords, currentWords, dailyGoal, startDate } = req.body;
   try {
     const project = await db.query(
-      `INSERT INTO Project (user_id, title, genre, start_date)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO Project (user_id, title, genre, description, start_date)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING project_id`,
-      [req.session.userId, title, genre, startDate]
+      [req.session.userId, title, genre, description || null, startDate]
     );
 
     const projectId = project.rows[0].project_id;
 
-    // Add goal
+    // Add goal with daily_target
     await db.query(
-      `INSERT INTO Goal (project_id, goal_type, target_value, start_date, is_active)
-       VALUES ($1, 'total_words', $2, $3, true)`,
-      [projectId, parseInt(targetWords), startDate]
+      `INSERT INTO Goal (project_id, goal_type, target_value, daily_target, start_date, is_active)
+       VALUES ($1, 'total_words', $2, $3, $4, true)`,
+      [projectId, parseInt(targetWords), parseInt(dailyGoal) || 1000, startDate]
     );
 
     // Optional initial progress log
@@ -235,9 +247,10 @@ app.get('/edit/:id', async (req, res) => {
   const projectId = parseInt(req.params.id);
   try {
     const result = await db.query(
-      `SELECT p.project_id AS id, p.title, p.genre, p.start_date,
+      `SELECT p.project_id AS id, p.title, p.genre, p.description, p.start_date,
               COALESCE(pl.total_words, 0) AS current_words,
               COALESCE(g.target_value, 50000) AS target_words,
+              COALESCE(g.daily_target, 1000) AS daily_goal,
               g.goal_id
        FROM Project p
        LEFT JOIN LATERAL (
@@ -260,7 +273,6 @@ app.get('/edit/:id', async (req, res) => {
     if (project.start_date) {
       project.start_date = new Date(project.start_date).toISOString().split('T')[0];
     }
-    project.daily_goal = Math.round(project.target_words / 50);
 
     res.render('edit-project', {
       username: req.session.username,
@@ -275,23 +287,23 @@ app.get('/edit/:id', async (req, res) => {
 // Edit project (POST update)
 app.post('/edit/:id', async (req, res) => {
   const projectId = parseInt(req.params.id);
-  const { title, genre, targetWords, currentWords, startDate } = req.body;
+  const { title, genre, description, targetWords, currentWords, dailyGoal, startDate } = req.body;
 
   try {
     // Update Project
     await db.query(
       `UPDATE Project
-       SET title = $1, genre = $2, start_date = $3
-       WHERE project_id = $4 AND user_id = $5`,
-      [title, genre, startDate, projectId, req.session.userId]
+       SET title = $1, genre = $2, description = $3, start_date = $4
+       WHERE project_id = $5 AND user_id = $6`,
+      [title, genre, description || null, startDate, projectId, req.session.userId]
     );
 
-    // Update Goal
+    // Update Goal with daily_target
     await db.query(
       `UPDATE Goal
-       SET target_value = $1
-       WHERE project_id = $2 AND goal_type = 'total_words' AND is_active = true`,
-      [parseInt(targetWords), projectId]
+       SET target_value = $1, daily_target = $2
+       WHERE project_id = $3 AND goal_type = 'total_words' AND is_active = true`,
+      [parseInt(targetWords), parseInt(dailyGoal) || 1000, projectId]
     );
 
     // Update progress
@@ -328,6 +340,9 @@ app.post('/edit/:id', async (req, res) => {
 app.post('/delete/:id', async (req, res) => {
   const projectId = parseInt(req.params.id);
   try {
+    // Delete related records first (if no CASCADE in DB)
+    await db.query('DELETE FROM ProgressLog WHERE project_id = $1', [projectId]);
+    await db.query('DELETE FROM Goal WHERE project_id = $1', [projectId]);
     await db.query(
       `DELETE FROM Project WHERE project_id = $1 AND user_id = $2`,
       [projectId, req.session.userId]
@@ -336,6 +351,248 @@ app.post('/delete/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete error:', err);
     res.redirect('/dashboard');
+  }
+});
+
+// ============ WORD LOGGING ROUTES ============
+
+// Project-specific word logging page (GET)
+app.get('/log-words/:id', async (req, res) => {
+  const projectId = parseInt(req.params.id);
+  
+  try {
+    const result = await db.query(
+      `SELECT p.project_id AS id, p.title, p.genre,
+              COALESCE(pl.total_words, 0) AS current_words,
+              COALESCE(g.target_value, 50000) AS target_words,
+              COALESCE(g.daily_target, 1000) AS daily_goal
+       FROM Project p
+       LEFT JOIN LATERAL (
+         SELECT total_words
+         FROM ProgressLog
+         WHERE project_id = p.project_id
+         ORDER BY log_date DESC
+         LIMIT 1
+       ) pl ON true
+       LEFT JOIN Goal g ON g.project_id = p.project_id
+         AND g.is_active = true
+         AND g.goal_type = 'total_words'
+       WHERE p.project_id = $1 AND p.user_id = $2`,
+      [projectId, req.session.userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.redirect('/dashboard');
+    }
+
+    res.render('log-words', {
+      username: req.session.username,
+      project: result.rows[0],
+      error_message: null,
+      success_message: null
+    });
+  } catch (err) {
+    console.error('Log words page error:', err);
+    res.redirect('/dashboard');
+  }
+});
+
+// Submit word log for specific project (POST)
+app.post('/log-words/:id', async (req, res) => {
+  const projectId = parseInt(req.params.id);
+  const { text, manual_count } = req.body;
+  
+  try {
+    // Calculate word count
+    let wordCount = 0;
+    if (manual_count && parseInt(manual_count) > 0) {
+      wordCount = parseInt(manual_count);
+    } else if (text && text.trim()) {
+      // TODO: Replace with your teammate's word counting function
+      wordCount = text.trim().split(/\s+/).length;
+    }
+
+    if (wordCount === 0) {
+      const project = await db.query(
+        `SELECT p.project_id AS id, p.title, p.genre,
+                COALESCE(pl.total_words, 0) AS current_words,
+                COALESCE(g.target_value, 50000) AS target_words,
+                COALESCE(g.daily_target, 1000) AS daily_goal
+         FROM Project p
+         LEFT JOIN LATERAL (
+           SELECT total_words FROM ProgressLog
+           WHERE project_id = p.project_id
+           ORDER BY log_date DESC LIMIT 1
+         ) pl ON true
+         LEFT JOIN Goal g ON g.project_id = p.project_id
+           AND g.is_active = true AND g.goal_type = 'total_words'
+         WHERE p.project_id = $1 AND p.user_id = $2`,
+        [projectId, req.session.userId]
+      );
+      
+      return res.render('log-words', {
+        username: req.session.username,
+        project: project.rows[0],
+        error_message: 'Please enter text or a word count',
+        success_message: null
+      });
+    }
+
+    // Get current total for the project
+    const lastLog = await db.query(
+      `SELECT total_words FROM ProgressLog
+       WHERE project_id = $1 ORDER BY log_date DESC LIMIT 1`,
+      [projectId]
+    );
+
+    const previousTotal = lastLog.rows.length > 0 ? lastLog.rows[0].total_words : 0;
+    const newTotal = previousTotal + wordCount;
+
+    // Insert progress log
+    await db.query(
+      `INSERT INTO ProgressLog (project_id, word_count, total_words, log_date)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+      [projectId, wordCount, newTotal]
+    );
+
+    console.log(`✅ Logged ${wordCount} words for project ${projectId}. New total: ${newTotal}`);
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error('Log submission error:', err);
+    res.redirect('/dashboard');
+  }
+});
+
+// Statistics page
+app.get('/stats', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT p.title,
+              COALESCE(pl.total_words, 0) AS total_words,
+              COALESCE(g.target_value, 50000) AS goal_words
+       FROM Project p
+       LEFT JOIN LATERAL (
+         SELECT total_words
+         FROM ProgressLog
+         WHERE project_id = p.project_id
+         ORDER BY log_date DESC
+         LIMIT 1
+       ) pl ON true
+       LEFT JOIN Goal g ON g.project_id = p.project_id
+         AND g.is_active = true
+         AND g.goal_type = 'total_words'
+       WHERE p.user_id = $1
+       ORDER BY p.start_date DESC`,
+      [req.session.userId]
+    );
+
+    const projects = result.rows.map(r => r.title);
+    const totalWords = result.rows.map(r => r.total_words);
+    const goalWords = result.rows.map(r => r.goal_words);
+
+    res.render('stats', {
+      username: req.session.username,
+      projects,
+      totalWords,
+      goalWords
+    });
+  } catch (err) {
+    console.error('Stats error:', err);
+    res.render('stats', {
+      username: req.session.username,
+      projects: [],
+      totalWords: [],
+      goalWords: []
+    });
+  }
+});
+
+// ============ MANAGER ROUTES ============
+
+// Manage Users (GET - list all users)
+app.get('/manage-users', requireManager, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, 
+              u.permissions, u.created_at, s.last_login
+       FROM "User" u
+       LEFT JOIN Security s ON u.user_id = s.user_id
+       ORDER BY u.created_at DESC`
+    );
+
+    res.render('manage-users', {
+      username: req.session.username,
+      users: result.rows
+    });
+  } catch (err) {
+    console.error('Manage users error:', err);
+    res.render('manage-users', {
+      username: req.session.username,
+      users: []
+    });
+  }
+});
+
+// Edit User (GET - form)
+app.get('/edit-user/:id', requireManager, async (req, res) => {
+  const userId = parseInt(req.params.id);
+  try {
+    const result = await db.query(
+      `SELECT u.user_id, u.username, u.email, u.first_name, u.last_name, u.permissions
+       FROM "User" u
+       WHERE u.user_id = $1`,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.redirect('/manage-users');
+    }
+
+    res.render('edit-user', {
+      username: req.session.username,
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Edit user GET error:', err);
+    res.redirect('/manage-users');
+  }
+});
+
+// Edit User (POST - update)
+app.post('/edit-user/:id', requireManager, async (req, res) => {
+  const userId = parseInt(req.params.id);
+  const { username, email, first_name, last_name, permissions } = req.body;
+
+  try {
+    await db.query(
+      `UPDATE "User"
+       SET username = $1, email = $2, first_name = $3, last_name = $4, permissions = $5
+       WHERE user_id = $6`,
+      [username, email, first_name, last_name, permissions, userId]
+    );
+
+    res.redirect('/manage-users');
+  } catch (err) {
+    console.error('Edit user POST error:', err);
+    res.redirect('/manage-users');
+  }
+});
+
+// Delete User (POST)
+app.post('/delete-user/:id', requireManager, async (req, res) => {
+  const userId = parseInt(req.params.id);
+  
+  // Prevent deleting yourself
+  if (userId === req.session.userId) {
+    return res.status(400).send('You cannot delete your own account');
+  }
+
+  try {
+    await db.query('DELETE FROM "User" WHERE user_id = $1', [userId]);
+    res.redirect('/manage-users');
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.redirect('/manage-users');
   }
 });
 
