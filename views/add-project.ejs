@@ -79,6 +79,13 @@
                               placeholder="Brief description of your project..."></textarea>
                     <small class="text-muted">Add notes about plot, themes, or goals</small>
                 </div>
+
+                <div class="mb-3">
+                    <label for="googleDocUrl" class="form-label">Google Doc Link (Optional)</label>
+                    <input type="url" class="form-control" id="googleDocUrl" name="googleDocUrl" 
+                           placeholder="https://docs.google.com/document/d/...">
+                    <small class="text-muted">Paste the full link to your Google Doc to enable auto-sync.</small>
+                </div>
                 
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -92,7 +99,7 @@
                         <label for="currentWords" class="form-label">Current Word Count</label>
                         <input type="number" class="form-control" id="currentWords" name="currentWords" 
                                value="0" min="0">
-                        <small class="text-muted">Words already written</small>
+                        <small id="currentWordsHelp" class="text-muted">Words already written</small>
                     </div>
                 </div>
                 
@@ -122,6 +129,26 @@
     <script>
         // Set today's date as default
         document.getElementById('startDate').valueAsDate = new Date();
+
+        // LOGIC: Lock Word Count if Google Doc is present
+        const docInput = document.getElementById('googleDocUrl');
+        const wordInput = document.getElementById('currentWords');
+        const wordHelp = document.getElementById('currentWordsHelp');
+
+        docInput.addEventListener('input', function() {
+            const url = this.value;
+            // Basic check if it looks like a google doc link
+            if (url && url.includes('docs.google.com/document/d/')) {
+                wordInput.value = ''; // Clear the manual count
+                wordInput.disabled = true; // Lock the field
+                wordInput.placeholder = "Auto-sync enabled";
+                wordHelp.innerText = "Word count will be fetched automatically after you click 'Sync Doc'";
+            } else {
+                wordInput.disabled = false; // Unlock the field
+                wordInput.placeholder = "";
+                wordHelp.innerText = "Words already written";
+            }
+        });
     </script>
 </body>
 </html>

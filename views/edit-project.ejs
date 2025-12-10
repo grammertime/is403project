@@ -53,7 +53,6 @@
                 <a href="/dashboard" class="btn btn-outline-secondary">Back to Dashboard</a>
             </div>
             
-            <!-- Progress Preview -->
             <div class="progress-preview">
                 <h5>Current Progress</h5>
                 <div class="d-flex justify-content-between mb-2">
@@ -62,7 +61,7 @@
                 </div>
                 <div class="progress" style="height: 20px;">
                     <div class="progress-bar bg-success" 
-                         style="width: <%= (project.current_words / project.target_words) * 100 %>%">
+                        style="width: <%= (project.current_words / project.target_words) * 100 %>%">
                     </div>
                 </div>
             </div>
@@ -98,6 +97,14 @@
                               placeholder="Brief description of your project..."><%= project.description || '' %></textarea>
                     <small class="text-muted">Add notes about plot, themes, or goals</small>
                 </div>
+
+                <div class="mb-3">
+                    <label for="googleDocUrl" class="form-label">Google Doc Link</label>
+                    <input type="url" class="form-control" id="googleDocUrl" name="googleDocUrl" 
+                           placeholder="https://docs.google.com/document/d/..."
+                           value="<%= project.google_doc_id ? `https://docs.google.com/document/d/${project.google_doc_id}` : '' %>">
+                    <small class="text-muted">Paste the full link to your Google Doc to enable auto-sync.</small>
+                </div>
                 
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -111,7 +118,7 @@
                         <label for="currentWords" class="form-label">Current Word Count *</label>
                         <input type="number" class="form-control" id="currentWords" name="currentWords" 
                                value="<%= project.current_words %>" min="0" required>
-                        <small class="text-muted">Words written so far</small>
+                        <small id="currentWordsHelp" class="text-muted">Words written so far</small>
                     </div>
                 </div>
                 
@@ -139,5 +146,33 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const docInput = document.getElementById('googleDocUrl');
+        const wordInput = document.getElementById('currentWords');
+        const wordHelp = document.getElementById('currentWordsHelp');
+
+        function toggleWordCountLock() {
+            const url = docInput.value;
+            // Check if it looks like a valid Google Doc URL
+            if (url && url.includes('docs.google.com/document/d/')) {
+                // We use readOnly instead of disabled so the value is still sent to the backend on submit
+                wordInput.readOnly = true; 
+                wordInput.style.backgroundColor = "#e9ecef"; // Grey out to look disabled
+                wordInput.style.cursor = "not-allowed";
+                wordHelp.innerText = "Managed by Auto-Sync. To edit manually, remove the Google Doc link.";
+            } else {
+                wordInput.readOnly = false;
+                wordInput.style.backgroundColor = ""; 
+                wordInput.style.cursor = "";
+                wordHelp.innerText = "Words written so far";
+            }
+        }
+
+        // Run on page load (in case there is already a link saved)
+        toggleWordCountLock();
+
+        // Run whenever the user changes the link
+        docInput.addEventListener('input', toggleWordCountLock);
+    </script>
 </body>
 </html>
